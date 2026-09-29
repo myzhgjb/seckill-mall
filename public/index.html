@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>高并发闪购商城</title>
+<style>
+  :root{--bg:#f4f6fb;--panel:#fff;--ink:#1f2733;--sub:#68738c;--line:#e6eaf2;--brand:#e5484d;--brandsoft:#fdeaea;
+        --ok:#16a34a;--warn:#d97706;--blue:#3b6ef6;--code:#0f172a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+  .wrap{max-width:1380px;margin:0 auto;padding:18px}
+  header{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:14px}
+  .logo{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#e5484d,#f59e0b);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 6px 16px rgba(229,72,77,.3)}
+  h1{font-size:18px;margin:0}.sub{font-size:12.5px;color:var(--sub);margin-top:3px}
+  .badges{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .badge{font-size:12px;padding:4px 10px;border-radius:999px;background:#eef2fb;color:var(--blue);border:1px solid #d8e2ff}
+  .badge.gray{background:#f1f3f8;color:var(--sub);border-color:#e6eaf2}
+  .badge.hot{background:var(--brandsoft);color:var(--brand);border-color:#f8cfd0}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:15px;box-shadow:0 6px 20px rgba(31,39,51,.05)}
+  .head{padding:12px 15px;border-bottom:1px solid var(--line);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .head i{width:6px;height:14px;border-radius:3px;background:var(--brand);display:inline-block}
+  .body{padding:14px 15px}
+  .prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;padding:14px 15px}
+  .prod{border:1px solid var(--line);border-radius:13px;padding:13px;transition:.15s}
+  .prod:hover{box-shadow:0 8px 22px rgba(31,39,51,.08);transform:translateY(-1px)}
+  .prod .img{font-size:30px}
+  .prod .nm{font-size:13.5px;font-weight:600;margin:6px 0 2px}
+  .prod .pr{font-size:16px;color:var(--brand);font-weight:700}
+  .prod .st{font-size:11.5px;color:var(--sub);margin:5px 0 9px;line-height:1.6}
+  .st b{color:var(--ink)}
+  .buy{width:100%;padding:9px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-size:13.5px;font-weight:700;cursor:pointer}
+  .buy:hover{background:#cf3b40}.buy:disabled{background:#c9cfdb;cursor:not-allowed}
+  .toast{margin:8px 15px 0;font-size:12.5px;padding:9px 12px;border-radius:9px;display:none}
+  .toast.ok{background:#e8f7ee;color:#0f7a3d;display:block}
+  .toast.err{background:#fdeaea;color:#b91c1c;display:block}
+  .toast.warn{background:#fdf1e3;color:#9a5b00;display:block}
+  .btn{padding:7px 14px;border:0;border-radius:9px;background:var(--blue);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer}
+  .btn.ghost{background:#eef2fb;color:#3b5bdb}
+  .btn.red{background:var(--brand)}
+  .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  input,select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-size:12.5px;background:#fff}
+  .stat{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12.5px;color:var(--sub)}
+  .stat b{color:var(--ink);font-size:14px}
+  .orders{max-height:260px;overflow:auto}
+  .oitem{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .tag{font-size:11px;padding:1px 7px;border-radius:5px}
+  .tag.ok{background:#e8f7ee;color:#0f7a3d}.tag.no{background:#f1f3f8;color:#68738c}
+  .tag.gray{background:#fdf1e3;color:#9a5b00}
+  .result{margin-top:11px;font-size:12.5px;line-height:1.8;background:#f7f9fc;border:1px solid var(--line);border-radius:10px;padding:11px 12px;display:none}
+  .result.show{display:block}
+  .big{font-size:15px;font-weight:700}
+  .pass{color:var(--ok)}.fail{color:var(--brand)}
+  .muted{color:var(--sub);font-size:11.5px}
+  pre{background:var(--code);color:#e6edf7;border-radius:9px;padding:10px 12px;font-size:11.5px;overflow:auto;margin:8px 0 0}
+  footer{text-align:center;color:#9aa4b8;font-size:12px;padding:16px 0 4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">⚡</div>
+    <div>
+      <h1>高并发闪购商城</h1>
+      <div class="sub">Redis Lua 预减库存 · 乐观锁防超卖 · MQ 异步削峰 · 多级缓存 · 限流降级</div>
+    </div>
+    <div class="badges">
+      <span class="badge gray" id="bMode">模式：正常</span>
+      <span class="badge" id="bQps">平均响应 <b id="vAvg">0</b> ms</span>
+      <span class="badge gray">订单 <b id="vOrders">0</b></span>
+      <span class="badge hot">MQ 队列 <b id="vQueue">0</b></span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="head"><i></i>限时秒杀
+          <span class="muted" style="font-weight:400;margin-left:auto">点击「立即抢购」体验完整链路；同一用户对同一商品仅可抢一次</span>
+        </div>
+        <div id="toast" class="toast"></div>
+        <div class="prods" id="prods">加载中…</div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="head"><i></i>并发压测（服务端模拟）</div>
+        <div class="body">
+          <div class="row">
+            <select id="sp"></select>
+            <label class="muted">并发数</label>
+            <input id="sc" type="number" value="1000" min="1" max="5000" style="width:100px" />
+            <button class="btn red" id="run">开始压测</button>
+            <button class="btn ghost" id="reset">重置库存</button>
+            <button class="btn ghost" id="mode">切换降级模式</button>
+          </div>
+          <div class="result" id="sres"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="head"><i></i>实时统计</div>
+        <div class="body">
+          <div class="stat">
+            <div>总请求 <b id="sReq">0</b></div>
+            <div>抢购成功 <b id="sOk">0</b></div>
+            <div>已售罄 <b id="sOut">0</b></div>
+            <div>限流拦截 <b id="sLim">0</b></div>
+            <div>重复下单 <b id="sDup">0</b></div>
+            <div>平均响应 <b id="sLat">0</b> ms</div>
+            <div>缓存命中(L1) <b id="sL1">0</b></div>
+            <div>缓存命中(L2) <b id="sL2">0</b></div>
+            <div>MQ 生产 <b id="sMqP">0</b></div>
+            <div>MQ 消费 <b id="sMqC">0</b></div>
+            <div>死信 <b id="sDead">0</b></div>
+            <div>库存(Redis) <b id="sRs">-</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="head"><i></i>订单流水</div>
+        <div class="body orders" id="orders"><div class="muted">暂无订单</div></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="head"><i></i>库存对账（Redis vs DB）</div>
+        <div class="body"><pre id="recon">-</pre></div>
+      </div>
+    </div>
+  </div>
+  <footer>零依赖 Node 服务 · 数据为演示用；Redis/MySQL/MQ 由进程内组件等价模拟（部署沙箱不提供外部中间件）</footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+let myUser = localStorage.getItem('mallUser');
+if(!myUser){ myUser='u-'+Math.random().toString(36).slice(2,8); localStorage.setItem('mallUser',myUser); }
+let curMode='normal';
+
+function toast(kind,msg){ const t=$('#toast'); t.className='toast '+kind; t.textContent=msg; setTimeout(()=>{t.className='toast';},4200); }
+
+async function loadProducts(){
+  const j=await (await fetch('/api/products')).json();
+  $('#prods').innerHTML=j.products.map(p=>`
+    <div class="prod">
+      <div class="img">${p.img}</div>
+      <div class="nm">${p.name}</div>
+      <div class="pr">¥${p.price}</div>
+      <div class="st">Redis 库存 <b>${p.redisStock}</b> · 数据库库存 <b>${p.dbStock}</b><br>
+        <span class="muted">${p.cached?'⚡ 命中缓存':'✓ 已回源并写入多级缓存'}</span></div>
+      <button class="buy" data-id="${p.id}" ${p.redisStock<=0?'disabled':''}>${p.redisStock<=0?'已售罄':'立即抢购'}</button>
+    </div>`).join('');
+  document.querySelectorAll('.buy').forEach(b=>b.onclick=()=>buy(b.dataset.id));
+  const sel=$('#sp'); const cur=sel.value;
+  sel.innerHTML=j.products.map(p=>`<option value="${p.id}">${p.name}（库存${p.redisStock}）</option>`).join('');
+  if(cur) sel.value=cur;
+  $('#bMode').textContent='模式：'+(j.mode==='degraded'?'降级(DB)':'正常');
+}
+
+async function buy(pid){
+  const btn=document.querySelector(`.buy[data-id="${pid}"]`); if(btn) btn.disabled=true;
+  try{
+    const r=await (await fetch('/api/seckill',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({productId:pid,userId:myUser})})).json();
+    if(r.status==='抢购成功') toast('ok',`🎉 ${r.status}！订单号 ${r.orderId||'(异步生成中)'}，剩余库存 ${r.remain}，耗时 ${r.latencyMs}ms`);
+    else if(r.status==='已售罄') toast('warn',`😵 ${r.message}（Redis 预减库存已挡在数据库之前）`);
+    else if(r.status==='限流拦截') toast('warn',`🚦 ${r.message}`);
+    else if(r.status==='重复下单') toast('warn',`🙈 ${r.message}`);
+    else toast('err',`${r.status}：${r.message||''}`);
+  }catch(e){ toast('err','网络错误：'+e.message); }
+  await refresh(); if(btn) setTimeout(()=>loadProducts(),600);
+}
+
+$('#run').onclick=async()=>{
+  const pid=$('#sp').value, c=Number($('#sc').value)||1000;
+  $('#run').disabled=true; $('#sres').className='result show'; $('#sres').innerHTML='压测中…（'+c+' 并发）';
+  try{
+    const r=await (await fetch('/api/stress',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({productId:pid,concurrency:c})})).json();
+    $('#sres').innerHTML=`
+      <div class="big ${r.passed?'pass':'fail'}">${r.passed?'✅ 压测通过：零超卖':'❌ 检测到超卖/异常'}</div>
+      <div>并发数 <b>${r.concurrency}</b> · 耗时 <b>${r.durationMs}</b> ms · 平均响应 <b>${r.avgLatencyMs}</b> ms</div>
+      <div>成功 <b>${r.results.success}</b> · 售罄 <b>${r.results.soldout}</b> · 限流 <b>${r.results.limited}</b> · 重复 <b>${r.results.duplicate}</b></div>
+      <div>Redis 库存：<b>${r.redisStockBefore}</b> → <b>${r.redisStockAfter}</b> · 数据库库存 <b>${r.dbStock}</b> · 生成订单 <b>${r.ordersCreated}</b></div>
+      <div class="muted">超卖数量：<b class="${r.oversold?'fail':'pass'}">${r.oversold}</b>（校验：Redis 扣减 = 订单数，且库存不出现负数）</div>`;
+  }catch(e){ $('#sres').innerHTML='<span class="fail">压测失败：'+e.message+'</span>'; }
+  $('#run').disabled=false; refresh(); loadProducts();
+};
+
+$('#reset').onclick=async()=>{ await fetch('/api/reset',{method:'POST'}); toast('ok','已重置库存、订单与统计'); refresh(); loadProducts(); };
+$('#mode').onclick=async()=>{
+  const next = curMode==='normal'?'degraded':'normal';
+  const r=await (await fetch('/api/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:next})})).json();
+  curMode=r.mode;
+  toast('warn', r.mode==='degraded'?'已切换为「降级模式」：跳过 Redis，直接走数据库乐观锁':'已恢复「正常模式」：Redis 预减 + MQ 异步');
+  refresh(); loadProducts();
+};
+
+async function refresh(){
+  try{
+    const j=await (await fetch('/api/stats')).json();
+    curMode=j.mode;
+    $('#bMode').textContent='模式：'+(j.mode==='degraded'?'降级(DB)':'正常');
+    $('#sReq').textContent=j.requests; $('#sOk').textContent=j.success; $('#sOut').textContent=j.soldout;
+    $('#sLim').textContent=j.limited; $('#sDup').textContent=j.duplicate; $('#sLat').textContent=j.avgLatencyMs;
+    $('#sL1').textContent=j.cache.hitL1; $('#sL2').textContent=j.cache.hitL2;
+    $('#sMqP').textContent=j.mq.produced; $('#sMqC').textContent=j.mq.consumed; $('#sDead').textContent=j.mq.dead;
+    $('#vOrders').textContent=j.mq.consumed; $('#vQueue').textContent=j.mq.queue; $('#vAvg').textContent=j.avgLatencyMs;
+    $('#sRs').textContent=Object.values(j.redisStock).join(' / ');
+    $('#recon').textContent = Object.entries(j.dbStock).map(([k,v])=>`${k}: Redis=${j.redisStock[k]}  DB=${v.stock}  version=${v.version}`).join('\n');
+  }catch(e){}
+  try{
+    const o=await (await fetch('/api/orders')).json();
+    if(!o.orders.length){ $('#orders').innerHTML='<div class="muted">暂无订单</div>'; return; }
+    $('#orders').innerHTML=o.orders.map(x=>`
+      <div class="oitem"><span>${x.productName} <span class="muted">${x.id.slice(0,10)}…</span></span>
+      <span class="tag ${x.status==='已下单'?'ok':x.status==='已回滚'?'gray':'no'}">${x.status}${x.retries?` · 重试${x.retries}`:''}</span></div>`).join('');
+  }catch(e){}
+}
+loadProducts(); refresh(); setInterval(refresh,1500); setInterval(loadProducts,4000);
+</script>
+</body>
+</html>
